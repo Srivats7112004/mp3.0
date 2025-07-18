@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
         GROQ_URL: "https://api.groq.com/openai/v1/chat/completions",
         CHAT_STORAGE_KEY: 'streetFoodChat',
         FAVORITES_STORAGE_KEY: 'favoriteVendors',
-        IMAGE_ANALYSIS_API: 'http://127.0.0.1:5000/analyze-image'  // Use 127.0.0.1 for local reliability
+        IMAGE_ANALYSIS_API: '/analyze-image'  // Relative path for Vercel (same domain)
     };
 
     let allVendorsData = [];
@@ -587,44 +587,43 @@ document.addEventListener('DOMContentLoaded', () => {
             typingMsg.classList.add('typing-indicator');
 
             try {
-                const formData = new FormData();
-                formData.append('image', file);
-                // Pass context (from existing vendor data and user location)
-                const vendorContext = allVendorsData.length > 0 ? 
-                    `Available vendors: ${allVendorsData.map(v => `${v.name} (${v.city}) - ${v.cuisine.join(', ')}`).join('; ')}` : 
-                    'Vendor data is being loaded.';
-                formData.append('vendor_context', vendorContext);
-                if (userLocation) {
-                    formData.append('user_location', JSON.stringify(userLocation));
-                }
-                formData.append('language', 'en');  // Or dynamically set based on user preference
+                const reader = new FileReader();
+                reader.onload = async () => {
+                    const base64Image = reader.result.split(',')[1];  // Base64 data
 
-                console.log('Sending fetch request to API:', CONFIG.IMAGE_ANALYSIS_API);
+                    const response = await fetch(CONFIG.IMAGE_ANALYSIS_API, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            image: base64Image,
+                            vendor_context: allVendorsData.length > 0 ? 
+                                `Available vendors: ${allVendorsData.map(v => \`${v.name} (${v.city}) - ${v.cuisine.join(', ')}\`).join('; ')}` : 
+                                'Vendor data is being loaded.',
+                            user_location: userLocation ? JSON.stringify(userLocation) : null,
+                            language: 'en'
+                        })
+                    });
 
-                const response = await fetch(CONFIG.IMAGE_ANALYSIS_API, {
-                    method: 'POST',
-                    body: formData
-                });
+                    console.log('API response status:', response.status);
 
-                console.log('API response status:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`API error: ${response.status} - ${await response.text()}`);
+                    }
 
-                if (!response.ok) {
-                    throw new Error(`API error: ${response.status} - ${await response.text()}`);
-                }
+                    const data = await response.json();
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
 
-                const data = await response.json();
-                if (data.error) {
-                    throw new Error(data.error);
-                }
+                    console.log('API success. Results:', data.results);
 
-                console.log('API success. Results:', data.results);
+                    // Remove typing
+                    typingMsg.remove();
 
-                // Remove typing
-                typingMsg.remove();
-
-                // Append results
-                this.appendMessage(data.results, 'bot');
-
+                    // Append results
+                    this.appendMessage(data.results, 'bot');
+                };
+                reader.readAsDataURL(file);
             } catch (err) {
                 console.error('Image upload error:', err);
                 typingMsg.remove();
