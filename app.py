@@ -4,16 +4,15 @@ from PIL import Image
 import requests
 import json
 import os
-import tempfile  # For safe temporary file handling
-from flask import Flask, request, jsonify
+import tempfile
 from werkzeug.utils import secure_filename
-from flask_cors import CORS
 
-app = Flask(__name__)
-CORS(app)
+# Global vars for lazy loading (serverless-safe)
+model = None
+processor = None
 
-# Set your Groq API key here (use env var in production)
-GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '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')  # Updated: Use env var with fallback
+# Set your Groq API key (use env var)
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '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')
 GROQ_MODEL = "llama3-8b-8192"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
@@ -23,10 +22,6 @@ INDIAN_STREET_FOODS = [
     "aloo tikki", "bhel puri", "jalebi", "kachori", "momos", "sev puri", "dabeli",
     "misal pav", "pakora", "chaat", "kulfi", "falooda", "ragda pattice"
 ]
-
-# Global variables for lazy loading (initialized on first request)
-model = None
-processor = None
 
 def classify_image(image):
     text_prompts = [f"a photo of {food}, an Indian street food" for food in INDIAN_STREET_FOODS]
@@ -101,7 +96,7 @@ def get_details_from_llm(food_name, vendor_context="", user_location=None, curre
         "Authorization": f"Bearer {GROQ_API_KEY}"
     }
 
-    response = requests.post(GROQ_URL, headers=headers, json=request_body)  # Updated: Use json= instead of data=json.dumps for simplicity
+    response = requests.post(GROQ_URL, headers=headers, json=request_body)
 
     if not response.ok:
         error_text = response.text
@@ -118,67 +113,48 @@ def get_details_from_llm(food_name, vendor_context="", user_location=None, curre
 
     return data["choices"][0]["message"]["content"].strip()
 
-@app.route('/analyze-image', methods=['POST'])
-def analyze_image_endpoint():
-    if 'image' not in request.files:
-        app.logger.error("No image file provided in request")
-        return jsonify({"error": "No image file provided"}), 400
-    
-    file = request.files['image']
-    if file.filename == '':
-        app.logger.error("No selected file in request")
-        return jsonify({"error": "No selected file"}), 400
-    
-    # Use tempfile for safe, writable temporary file handling
+def handler(event, context):
+    if event['httpMethod'] != 'POST':
+        return {
+            'statusCode': 405,
+            'body': json.dumps({"error": "Method Not Allowed"})
+        }
+
+    # Parse the body (Vercel sends as base64 for binary, but for form-data, manual parse needed
+    # For simplicity, assume JS sends base64 image in JSON body - adjust JS accordingly
     try:
-        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-            file.save(temp_file.name)  # Save to temp file path
-            temp_path = temp_file.name
-        
-        app.logger.info(f"Saving uploaded file to temp path: {temp_path}")
-        
-        # Validate and open image
-        image = Image.open(temp_path)
-        image.verify()  # Check if it's a valid image
-        image = Image.open(temp_path)  # Re-open for processing
-        
-        # Lazy-load models on first request to save memory
+        body = json.loads(event['body'])
+        image_data = body.get('image')  # Assume base64 string from JS
+        if not image_data:
+            return {'statusCode': 400, 'body': json.dumps({"error": "No image data provided"})}
+
+        # Decode base64 to bytes
+        image_bytes = base64.b64decode(image_data)
+        image = Image.open(io.BytesIO(image_bytes))
+
+        # Lazy-load models
         global model, processor
         if model is None:
-            app.logger.info("Lazy-loading CLIP model...")
             model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
         if processor is None:
-            app.logger.info("Lazy-loading CLIP processor...")
             processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-        
+
         food_name = classify_image(image)
-        
-        # Optional params from request
-        vendor_context = request.form.get('vendor_context', "")
-        user_location = request.form.get('user_location', None)
-        if user_location:
-            try:
-                user_location = json.loads(user_location)
-            except json.JSONDecodeError:
-                user_location = None
-        current_language = request.form.get('language', "en")
-        
+
+        # Optional params
+        vendor_context = body.get('vendor_context', "")
+        user_location = body.get('user_location', None)
+        current_language = body.get('language', "en")
+
         details = get_details_from_llm(food_name, vendor_context, user_location, current_language)
         output = f"Classified Indian Street Food: {food_name.replace('_', ' ').capitalize()}\n\nDetails:\n{details}"
-        
-        app.logger.info("Analysis successful")
-        return jsonify({"results": output})
-    except (IOError, SyntaxError) as e:
-        app.logger.error(f"Invalid image: {str(e)}")
-        return jsonify({"error": "Invalid or corrupted image file"}), 400
-    except Exception as e:
-        app.logger.error(f"Processing error: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-    finally:
-        if 'temp_path' in locals() and os.path.exists(temp_path):
-            os.remove(temp_path)  # Clean up
-            app.logger.info(f"Cleaned up temp file: {temp_path}")
 
-if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 5000))  # Use dynamic port for production (e.g., Render/Heroku)
-    app.run(host='0.0.0.0', port=port, debug=False)  # debug=False for production
+        return {
+            'statusCode': 200,
+            'body': json.dumps({"results": output})
+        }
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'body': json.dumps({"error": str(e)})
+        }
