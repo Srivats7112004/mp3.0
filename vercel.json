@@ -33,16 +33,32 @@
       "methods": ["POST"]
     },
     {
-      "src": "/(explore-styles.css|styles.css|explore-script.js|script.js|vendors.json)",
-      "dest": "/$1"  // Serve specific static files
+      "src": "/explore-styles.css",
+      "dest": "/explore-styles.css"
+    },
+    {
+      "src": "/styles.css",
+      "dest": "/styles.css"
+    },
+    {
+      "src": "/explore-script.js",
+      "dest": "/explore-script.js"
+    },
+    {
+      "src": "/script.js",
+      "dest": "/script.js"
+    },
+    {
+      "src": "/vendors.json",
+      "dest": "/vendors.json"
     },
     {
       "src": "/explore",
-      "dest": "/explore.html"  // Route /explore to explore.html (if using clean URLs)
+      "dest": "/explore.html"
     },
     {
       "src": "/(.*)",
-      "dest": "/index.html"  // Fallback to index.html for root/other paths
+      "dest": "/index.html"
     }
   ]
 }
