@@ -101,7 +101,7 @@ def get_details_from_llm(food_name, vendor_context="", user_location=None, curre
         "Authorization": f"Bearer {GROQ_API_KEY}"
     }
 
-    response = requests.post(GROQ_URL, headers=headers, data=json.dumps(request_body))
+    response = requests.post(GROQ_URL, headers=headers, json=request_body)  # Updated: Use json= instead of data=json.dumps for simplicity
 
     if not response.ok:
         error_text = response.text
@@ -129,7 +129,7 @@ def analyze_image_endpoint():
         app.logger.error("No selected file in request")
         return jsonify({"error": "No selected file"}), 400
     
-    # New: Use tempfile for safe, writable temporary file handling
+    # Use tempfile for safe, writable temporary file handling
     try:
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             file.save(temp_file.name)  # Save to temp file path
@@ -157,7 +157,10 @@ def analyze_image_endpoint():
         vendor_context = request.form.get('vendor_context', "")
         user_location = request.form.get('user_location', None)
         if user_location:
-            user_location = json.loads(user_location)
+            try:
+                user_location = json.loads(user_location)
+            except json.JSONDecodeError:
+                user_location = None
         current_language = request.form.get('language', "en")
         
         details = get_details_from_llm(food_name, vendor_context, user_location, current_language)
