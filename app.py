@@ -163,4 +163,5 @@ def analyze_image_endpoint():
             os.remove(temp_path)  # Clean up
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))  # Use Heroku's PORT or default to 5000 locally
+    app.run(host='0.0.0.0', port=port, debug=True)  # host='0.0.0.0' for external access
