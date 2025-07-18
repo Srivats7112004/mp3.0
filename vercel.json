@@ -6,19 +6,15 @@
       "use": "@vercel/python"
     },
     {
-      "src": "index.html",
+      "src": "**/*.html",
       "use": "@vercel/static"
     },
     {
-      "src": "explore.html",
+      "src": "**/*.css",
       "use": "@vercel/static"
     },
     {
-      "src": "*.css",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "*.js",
+      "src": "**/*.js",
       "use": "@vercel/static"
     },
     {
@@ -29,28 +25,8 @@
   "routes": [
     {
       "src": "/analyze-image",
-      "methods": ["POST"],
-      "dest": "/api/analyze-image.py"
-    },
-    {
-      "src": "/explore-styles.css",
-      "dest": "/explore-styles.css"
-    },
-    {
-      "src": "/styles.css",
-      "dest": "/styles.css"
-    },
-    {
-      "src": "/explore-script.js",
-      "dest": "/explore-script.js"
-    },
-    {
-      "src": "/script.js",
-      "dest": "/script.js"
-    },
-    {
-      "src": "/vendors.json",
-      "dest": "/vendors.json"
+      "dest": "/api/analyze-image.py",
+      "methods": ["POST"]
     },
     {
       "src": "/explore",
