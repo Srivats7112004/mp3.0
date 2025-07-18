@@ -53,12 +53,12 @@
       "dest": "/vendors.json"
     },
     {
-      "src": "/explore",
+      "src": "/explore",  // New: Clean URL for explore page
       "dest": "/explore.html"
     },
     {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "/index.html"  // Fallback to main index.html
     }
   ]
 }
