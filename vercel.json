@@ -6,18 +6,43 @@
       "use": "@vercel/python"
     },
     {
-      "src": "*.html",
+      "src": "index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "explore.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "*.css",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "*.js",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "vendors.json",
       "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/analyze-image",
-      "dest": "/api/analyze-image.py"
+      "dest": "/api/analyze-image.py",
+      "methods": ["POST"]
+    },
+    {
+      "src": "/(explore-styles.css|styles.css|explore-script.js|script.js|vendors.json)",
+      "dest": "/$1"  // Serve specific static files
+    },
+    {
+      "src": "/explore",
+      "dest": "/explore.html"  // Route /explore to explore.html (if using clean URLs)
     },
     {
       "src": "/(.*)",
-      "dest": "/$1"
+      "dest": "/index.html"  // Fallback to index.html for root/other paths
     }
   ]
 }
